@@ -39,6 +39,12 @@ jobs:
           BUILD_DIR="$PWD/build" \
           BUILD_ROOT="$PWD/build" \
           INFOPLIST_FILE="Info.plist"
+      - name: Package unsigned IPA
+        run: |
+          mkdir -p build/ipa/Payload
+          cp -R build/Release-iphoneos/MyApp.app build/ipa/Payload/
+          cd build/ipa
+          zip -qr MyApp-unsigned.ipa Payload
       - name: Upload unsigned IPA as artifact
         uses: actions/upload-artifact@v4
         with:
