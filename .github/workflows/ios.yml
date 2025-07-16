@@ -23,7 +23,7 @@ jobs:
       - name: Build
         env:
           scheme: ${{ 'default' }}
-          platform: ${{ 'iOS Simulator' }}
+          platform: ${{ 'iOS' }}
         run: |
           # xcrun xctrace returns via stderr, not the expected stdout (see https://developer.apple.com/forums/thread/663959)
           device=`xcrun xctrace list devices 2>&1 | grep -oE 'iPhone.*?[^\(]+' | head -1 | awk '{$1=$1;print}' | sed -e "s/ Simulator$//"`
@@ -32,7 +32,7 @@ jobs:
           file_to_build=`echo $file_to_build | awk '{$1=$1;print}'`
           xcodebuild build-for-testing -scheme "$scheme" -"$filetype_parameter" "$file_to_build" -sdk iphoneos
       - name: Upload unsigned IPA as artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: MyApp-unsigned.ipa
           path: build/ipa/MyApp-unsigned.ipa
