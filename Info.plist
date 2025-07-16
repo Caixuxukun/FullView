@@ -1,45 +1,24 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<Scheme
-  LastUpgradeVersion = "1500"
-  version = "1.7">
-  <BuildAction parallelizeBuildables="YES" buildImplicitDependencies="YES">
-    <BuildActionEntries>
-      <BuildActionEntry
-        buildForTesting="YES"
-        buildForRunning="YES"
-        buildForProfiling="YES"
-        buildForArchiving="YES"
-        buildForAnalyzing="YES">
-        <BuildableReference
-          BuildableIdentifier="primary"
-          BlueprintIdentifier="YOUR_TARGET_GUID"
-          BuildableName="MyApp.app"
-          BlueprintName="MyApp"
-          ReferencedContainer="container:MyApp.xcodeproj"/>
-      </BuildActionEntry>
-    </BuildActionEntries>
-  </BuildAction>
-  <TestAction buildConfiguration="Release"
-              selectedDebuggerIdentifier="Xcode.DebuggerFoundation.Debugger.LLDB"
-              selectedLauncherIdentifier="Xcode.DebuggerFoundation.Launcher.LLDB"
-              shouldUseLaunchSchemeArgsEnv="YES">
-    <Testables/>
-  </TestAction>
-  <LaunchAction buildConfiguration="Release"
-                selectedDebuggerIdentifier="Xcode.DebuggerFoundation.Debugger.LLDB"
-                selectedLauncherIdentifier="Xcode.DebuggerFoundation.Launcher.LLDB"
-                launchStyle="0"
-                useCustomWorkingDirectory="NO"
-                ignoresPersistentStateOnLaunch="NO"
-                debugDocumentVersioning="YES"
-                debugServiceExtension="internal">
-    <BuildableProductRunnable>
-      <BuildableReference
-        BuildableIdentifier="primary"
-        BlueprintIdentifier="YOUR_TARGET_GUID"
-        BuildableName="MyApp.app"
-        BlueprintName="MyApp"
-        ReferencedContainer="container:MyApp.xcodeproj"/>
-    </BuildableProductRunnable>
-  </LaunchAction>
-</Scheme>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+          "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleIdentifier</key>
+  <string>com.example.myapp</string>
+  <key>CFBundleName</key>
+  <string>MyApp</string>
+  <key>CFBundleExecutable</key>
+  <string>MyApp</string>
+  <key>CFBundleVersion</key>
+  <string>1</string>
+  <key>CFBundleShortVersionString</key>
+  <string>1.0</string>
+  <key>LSRequiresIPhoneOS</key>
+  <true/>
+  <key>UIDeviceFamily</key>
+  <array>
+    <integer>1</integer>
+    <integer>2</integer>
+  </array>
+</dict>
+</plist>
