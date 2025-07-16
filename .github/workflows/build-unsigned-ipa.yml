@@ -45,6 +45,7 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             BUILD_DIR="$PWD/build" \
             BUILD_ROOT="$PWD/build"
+            INFOPLIST_FILE="Info.plist"
 
       - name: Package .app into unsigned IPA
         run: |
