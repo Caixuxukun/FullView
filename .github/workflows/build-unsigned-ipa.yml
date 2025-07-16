@@ -57,7 +57,7 @@ jobs:
           zip -qr MyApp-unsigned.ipa Payload
 
       - name: Upload unsigned IPA as artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: MyApp-unsigned.ipa
           path: build/ipa/MyApp-unsigned.ipa
