@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" 
+                      "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+
+    <!-- 应用显示名称 -->
+    <key>CFBundleDisplayName</key>
+    <string>MyApp</string>
+
+    <!-- 包标识符 -->
+    <key>CFBundleIdentifier</key>
+    <string>com.example.myapp</string>
+
+    <!-- 可执行文件名，通常与 Targets → Product Name 一致 -->
+    <key>CFBundleExecutable</key>
+    <string>$(EXECUTABLE_NAME)</string>
+
+    <!-- 包类型 -->
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+
+    <!-- 版本号（营销版本），如 1.0.0 -->
+    <key>CFBundleShortVersionString</key>
+    <string>1.0.0</string>
+
+    <!-- 内部构建号，每次提交打包时递增 -->
+    <key>CFBundleVersion</key>
+    <string>1</string>
+
+    <!-- 要求 iOS 设备运行 -->
+    <key>LSRequiresIPhoneOS</key>
+    <true/>
+
+    <!-- 设备族：1 = iPhone/iPod, 2 = iPad -->
+    <key>UIDeviceFamily</key>
+    <array>
+        <integer>1</integer>
+        <integer>2</integer>
+    </array>
+
+    <!-- 启动时显示的 Storyboard/LaunchScreen 名称 -->
+    <key>UILaunchStoryboardName</key>
+    <string>LaunchScreen</string>
+
+    <!-- 场景（Scene）配置，SwiftUI @main 会自动使用 Default Configuration -->
+    <key>UIApplicationSceneManifest</key>
+    <dict>
+        <key>UIApplicationSupportsMultipleScenes</key>
+        <false/>
+        <key>UISceneConfigurations</key>
+        <dict>
+            <key>UIWindowSceneSessionRoleApplication</key>
+            <array>
+                <dict>
+                    <!-- 与 Xcode Targets → Info → Scene Configuration → Name 一致 -->
+                    <key>UISceneConfigurationName</key>
+                    <string>Default Configuration</string>
+                    <!-- SwiftUI 不需要手写 Delegate，这里保留占位即可 -->
+                    <key>UISceneDelegateClassName</key>
+                    <string>$(PRODUCT_MODULE_NAME).SceneDelegate</string>
+                </dict>
+            </array>
+        </dict>
+    </dict>
+
+</dict>
+</plist>
