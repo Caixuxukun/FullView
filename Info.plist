@@ -4,7 +4,7 @@
 <plist version="1.0">
 <dict>
   <key>CFBundleIdentifier</key>
-  <string>com.example.myapp</string>
+  <string>com.cxxk.myapp</string>
   <key>CFBundleName</key>
   <string>MyApp</string>
   <key>CFBundleExecutable</key>
@@ -15,6 +15,11 @@
   <string>1.0</string>
   <key>LSRequiresIPhoneOS</key>
   <true/>
+  <key>NSAppTransportSecurity</key>
+  <dict>
+    <key>NSAllowsArbitraryLoads</key>
+    <true/>
+  </dict>
   <key>UIDeviceFamily</key>
   <array>
     <integer>1</integer>
