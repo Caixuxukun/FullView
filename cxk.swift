@@ -47,7 +47,16 @@ class BrowserViewController: UIViewController, WKNavigationDelegate, UITextField
             urlTextField.heightAnchor.constraint(equalToConstant: 40)
         ])
     }
-
+    func webView(_ webView: WKWebView,
+                 decidePolicyFor navigationAction: WKNavigationAction,
+                 decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
+        if navigationAction.targetFrame == nil {
+            webView.load(navigationAction.request)
+            decisionHandler(.cancel)
+        } else {
+            decisionHandler(.allow)
+        }
+    }
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         // 6. 通知系统更新手势延迟
