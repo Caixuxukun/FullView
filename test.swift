@@ -9,8 +9,7 @@ class BrowserViewController: UIViewController, WKNavigationDelegate {
     // 1. 隐藏状态栏
     override var prefersStatusBarHidden: Bool { true }
 
-    // 2. 隐藏 Home 指示条，延迟底部手势
-    override var prefersHomeIndicatorAutoHidden: Bool { true }
+    // 2. 延迟底部手势
     override var preferredScreenEdgesDeferringSystemGestures: UIRectEdge { .bottom }
 
     override func viewDidLoad() {
@@ -34,9 +33,8 @@ class BrowserViewController: UIViewController, WKNavigationDelegate {
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
 
-        // 5. 通知系统更新手势延迟和指示条隐藏
+        // 5. 通知系统更新手势延迟
         setNeedsUpdateOfScreenEdgesDeferringSystemGestures()
-        setNeedsUpdateOfHomeIndicatorAutoHidden()
 
         // 6. 只弹一次输入框
         guard !hasPrompted else { return }
