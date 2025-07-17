@@ -31,8 +31,8 @@ jobs:
           if [ "`ls -A | grep -i \\.xcworkspace\$`" ]; then filetype_parameter="workspace" && file_to_build="`ls -A | grep -i \\.xcworkspace\$`"; else filetype_parameter="project" && file_to_build="`ls -A | grep -i \\.xcodeproj\$`"; fi
           file_to_build=`echo $file_to_build | awk '{$1=$1;print}'`
           xcodebuild clean build \
-          -project MyApp.xcodeproj \
-          -scheme MyApp \
+          -project FullView.xcodeproj \
+          -scheme FullView \
           -configuration Release \
           -sdk iphoneos \
           CODE_SIGNING_ALLOWED=NO \
@@ -44,9 +44,9 @@ jobs:
           mkdir -p build/ipa/Payload
           cp -R build/Release-iphoneos/MyApp.app build/ipa/Payload/
           cd build/ipa
-          zip -qr MyApp-unsigned.ipa Payload
+          zip -qr FullView-unsigned.ipa Payload
       - name: Upload unsigned IPA as artifact
         uses: actions/upload-artifact@v4
         with:
-          name: MyApp-unsigned.ipa
-          path: build/ipa/MyApp-unsigned.ipa
+          name: FullView-unsigned.ipa
+          path: build/ipa/FullView-unsigned.ipa

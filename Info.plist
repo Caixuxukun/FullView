@@ -4,11 +4,11 @@
 <plist version="1.0">
 <dict>
   <key>CFBundleIdentifier</key>
-  <string>com.cxxk.myapp</string>
+  <string>com.cxxk.FullView</string>
   <key>CFBundleName</key>
-  <string>MyApp</string>
+  <string>FullView</string>
   <key>CFBundleExecutable</key>
-  <string>MyApp</string>
+  <string>FullView</string>
   <key>CFBundleVersion</key>
   <string>1</string>
   <key>CFBundleShortVersionString</key>
