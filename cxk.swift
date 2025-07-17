@@ -21,13 +21,15 @@ class BrowserViewController: UIViewController, WKNavigationDelegate, UITextField
         webView.navigationDelegate = self
         webView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         if #available(iOS 15.0, *) {
-            // 动态取当前屏幕的最大帧率（ProMotion 设备上即 120）
-            let maxFPS = UIScreen.main.maximumFramesPerSecond
-            webView.layer.preferredFrameRateRange = CAFrameRateRange(
-                minimum: 1,
-                maximum: maxFPS,
-                preferred: maxFPS
+            let maxFPS = UIScreen.main.maximumFramesPerSecond    // Int
+            let fps = Float(maxFPS)                              // 转成 Float
+
+            let range = CAFrameRateRange(
+                minimum: 1.0,                                      // 最低一帧
+                maximum: fps,                                      // 最大
+                preferred: fps                                     // 优选
             )
+            webView.layer.preferredFrameRateRange = range
         }
         // 4. 取消 Safe Area 对 content 的自动 inset
         if #available(iOS 11.0, *) {
