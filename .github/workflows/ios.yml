@@ -42,7 +42,7 @@ jobs:
       - name: Package unsigned IPA
         run: |
           mkdir -p build/ipa/Payload
-          cp -R build/Release-iphoneos/MyApp.app build/ipa/Payload/
+          cp -R build/Release-iphoneos/FullView.app build/ipa/Payload/
           cd build/ipa
           zip -qr FullView-unsigned.ipa Payload
       - name: Upload unsigned IPA as artifact
