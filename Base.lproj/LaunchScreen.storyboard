@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.Storyboard"
+          version="3.0" toolsVersion="18122"
+          targetRuntime="iOS.CocoaTouch"
+          propertyAccessControl="none"
+          useSafeAreas="YES"
+          initialViewController="VC">
+  <scenes>
+    <scene sceneID="S1">
+      <objects>
+        <viewController storyboardIdentifier="LaunchScreen"
+                        id="VC"
+                        customClass="UIViewController">
+          <view key="view" contentMode="scaleToFill" id="V">
+            <safeAreaLayoutGuide key="safeArea" id="SA"/>
+            <!-- 这里可以加你的 Logo 或其它启动视图 -->
+            <imageView userInteractionEnabled="NO"
+                       contentMode="scaleAspectFit"
+                       translatesAutoresizingMaskIntoConstraints="NO"
+                       id="IMG">
+              <rect key="frame" x="0" y="0" width="200" height="200"/>
+              <constraints>
+                <constraint firstItem="IMG" firstAttribute="centerX"
+                            secondItem="V" secondAttribute="centerX"/>
+                <constraint firstItem="IMG" firstAttribute="centerY"
+                            secondItem="V" secondAttribute="centerY"/>
+                <constraint firstAttribute="width" constant="200"/>
+                <constraint firstAttribute="height" constant="200"/>
+              </constraints>
+            </imageView>
+          </view>
+        </viewController>
+      </objects>
+    </scene>
+  </scenes>
+</document>
