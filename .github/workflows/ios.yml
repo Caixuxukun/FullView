@@ -39,7 +39,6 @@ jobs:
           BUILD_DIR="$PWD/build" \
           BUILD_ROOT="$PWD/build" \
           INFOPLIST_FILE="Info.plist"
-          OTHER_LDFLAGS="-framework QuartzCore"
       - name: Package unsigned IPA
         run: |
           mkdir -p build/ipa/Payload
