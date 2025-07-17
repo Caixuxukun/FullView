@@ -1,68 +1,64 @@
 import UIKit
 import WebKit
 
-class ViewController: UIViewController, WKNavigationDelegate {
-    
+// MARK: –– 浏览器主体
+class BrowserViewController: UIViewController, WKNavigationDelegate {
     private var webView: WKWebView!
-    
-    // MARK: - 生命周期
-    
+
+    // 隐藏 Home 指示条，需要连滑两次才能退出
+    override var prefersHomeIndicatorAutoHidden: Bool { true }
+    override var preferredScreenEdgesDeferringSystemGestures: UIRectEdge { .bottom }
+
     override func viewDidLoad() {
         super.viewDidLoad()
-        
-        setupWebView()
-        promptForURL()
-    }
-    
-    // MARK: - WebView 初始化
-    
-    private func setupWebView() {
-        // 创建并添加到 self.view
+
+        // 1. 全屏创建 WKWebView
         webView = WKWebView(frame: view.bounds)
         webView.navigationDelegate = self
         webView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         view.addSubview(webView)
+
+        // 2. 弹框输入 URL
+        promptForURL()
     }
-    
-    // MARK: - 弹框输入网址
-    
+
     private func promptForURL() {
         let alert = UIAlertController(title: "请输入网址",
                                       message: nil,
                                       preferredStyle: .alert)
-        alert.addTextField { textField in
-            textField.placeholder = "https://example.com"
-            textField.keyboardType = .URL
-            textField.clearButtonMode = .whileEditing
+        alert.addTextField { tf in
+            tf.placeholder = "https://example.com"
+            tf.keyboardType = .URL
+            tf.clearButtonMode = .whileEditing
         }
-        let ok = UIAlertAction(title: "确定", style: .default) { [weak self] _ in
-            guard let str = alert.textFields?.first?.text,
-                  let url = URL(string: str.hasPrefix("http") ? str : "https://\(str)") else {
-                // 输入无效，重新弹框
+        alert.addAction(UIAlertAction(title: "确定", style: .default) { [weak self] _ in
+            guard
+                let s = alert.textFields?.first?.text,
+                let url = URL(string: s.hasPrefix("http") ? s : "https://\(s)")
+            else {
+                // 无效输入，重试
                 self?.promptForURL()
                 return
             }
             self?.webView.load(URLRequest(url: url))
-        }
-        alert.addAction(ok)
+        })
         present(alert, animated: true)
     }
-    
-    // MARK: - 隐藏 Home Indicator（需要两次上滑才能退出）
-    
-    override var prefersHomeIndicatorAutoHidden: Bool {
+}
+
+// MARK: –– 应用入口
+@UIApplicationMain    // 自动生成 main()
+class AppDelegate: UIResponder, UIApplicationDelegate {
+    var window: UIWindow?
+
+    func application(
+      _ application: UIApplication,
+      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
+    ) -> Bool {
+        // 创建 window 并以 BrowserViewController 为根
+        window = UIWindow(frame: UIScreen.main.bounds)
+        window?.rootViewController = BrowserViewController()
+        window?.makeKeyAndVisible()
         return true
-    }
-    
-    override var preferredScreenEdgesDeferringSystemGestures: UIRectEdge {
-        // 告诉系统：底部边缘的手势应当延迟处理
-        return .bottom
-    }
-    
-    // 当界面需要更新时，主动调用
-    override func viewDidAppear(_ animated: Bool) {
-        super.viewDidAppear(animated)
-        setNeedsUpdateOfHomeIndicatorAutoHidden()
-        setNeedsUpdateOfScreenEdgesDeferringSystemGestures()
     }
 }
