@@ -2,9 +2,9 @@ import UIKit
 import WebKit
 
 // MARK: –– 浏览器控制器
-class BrowserViewController: UIViewController, WKNavigationDelegate {
+class BrowserViewController: UIViewController, WKNavigationDelegate, UITextFieldDelegate {
     private var webView: WKWebView!
-    private var hasPrompted = false
+    private var urlTextField: UITextField!
 
     // 1. 隐藏状态栏
     override var prefersStatusBarHidden: Bool { true }
@@ -26,45 +26,54 @@ class BrowserViewController: UIViewController, WKNavigationDelegate {
         } else {
             automaticallyAdjustsScrollViewInsets = false
         }
-
         view.addSubview(webView)
+
+        // —— 新增：在中间创建一个 UITextField —— //
+        urlTextField = UITextField()
+        urlTextField.borderStyle = .roundedRect
+        urlTextField.placeholder = "https://example.com"
+        urlTextField.keyboardType = .URL
+        urlTextField.clearButtonMode = .whileEditing
+        urlTextField.textAlignment = .center
+        urlTextField.delegate = self
+        urlTextField.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(urlTextField)
+
+        // 5. 约束：宽 250，高 40，水平垂直居中
+        NSLayoutConstraint.activate([
+            urlTextField.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            urlTextField.centerYAnchor.constraint(equalTo: view.centerYAnchor),
+            urlTextField.widthAnchor.constraint(equalToConstant: 250),
+            urlTextField.heightAnchor.constraint(equalToConstant: 40)
+        ])
     }
 
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
-
-        // 5. 通知系统更新手势延迟
+        // 6. 通知系统更新手势延迟
         setNeedsUpdateOfScreenEdgesDeferringSystemGestures()
-
-        // 6. 只弹一次输入框
-        guard !hasPrompted else { return }
-        hasPrompted = true
-        promptForURL()
     }
 
-    private func promptForURL() {
-        let alert = UIAlertController(
-            title: "请输入网址",
-            message: nil,
-            preferredStyle: .alert
-        )
-        alert.addTextField {
-            $0.placeholder = "https://example.com"
-            $0.keyboardType = .URL
-            $0.clearButtonMode = .whileEditing
-        }
-        alert.addAction(.init(title: "确定", style: .default) { [weak self] _ in
-            guard
-                let s = alert.textFields?.first?.text,
-                let url = URL(string: s.hasPrefix("http") ? s : "https://\(s)")
-            else {
-                // 输入无效，允许重试
-                self?.hasPrompted = false
-                return
+    // MARK: –– UITextFieldDelegate
+    func textFieldShouldReturn(_ textField: UITextField) -> Bool {
+        textField.resignFirstResponder()
+
+        // 7. 读取输入，补全协议头并加载
+        if var input = textField.text?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !input.isEmpty {
+            if !input.hasPrefix("http://") && !input.hasPrefix("https://") {
+                input = "https://\(input)"
             }
-            self?.webView.load(URLRequest(url: url))
-        })
-        present(alert, animated: true)
+            if let url = URL(string: input) {
+                webView.load(URLRequest(url: url))
+            }
+        }
+
+        // 8. 输入完后隐藏文本框（可根据需求改为保留或再次显示）
+        UIView.animate(withDuration: 0.25) {
+            textField.alpha = 0
+        }
+        return true
     }
 }
 
@@ -77,7 +86,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
       _ application: UIApplication,
       didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
     ) -> Bool {
-        // 7. 手动创建 window，不使用 Storyboard
         window = UIWindow(frame: UIScreen.main.bounds)
         window?.rootViewController = BrowserViewController()
         window?.makeKeyAndVisible()
