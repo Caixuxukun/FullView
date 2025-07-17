@@ -1,3 +1,4 @@
+import QuartzCore
 import UIKit
 import WebKit
 
