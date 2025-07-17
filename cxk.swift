@@ -1,4 +1,3 @@
-import QuartzCore
 import UIKit
 import WebKit
 
@@ -20,6 +19,7 @@ class BrowserViewController: UIViewController, WKNavigationDelegate, UITextField
         webView = WKWebView(frame: view.bounds)
         webView.navigationDelegate = self
         webView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+
         // 4. 取消 Safe Area 对 content 的自动 inset
         if #available(iOS 11.0, *) {
             webView.scrollView.contentInsetAdjustmentBehavior = .never
@@ -61,34 +61,6 @@ class BrowserViewController: UIViewController, WKNavigationDelegate, UITextField
         super.viewDidAppear(animated)
         // 6. 通知系统更新手势延迟
         setNeedsUpdateOfScreenEdgesDeferringSystemGestures()
-        // 3. 启动 CADisplayLink，跟随屏幕最高帧率：
-        displayLink = CADisplayLink(target: self, selector: #selector(onDisplayLink(_:)))
-        if #available(iOS 15.0, *) {
-            // 让它跑到设备最高刷新率（ProMotion 就 120）
-            let maxFPS = Float(UIScreen.main.maximumFramesPerSecond)
-            displayLink?.preferredFrameRateRange = CAFrameRateRange(
-                minimum: 1.0,
-                maximum: maxFPS,
-                preferred: maxFPS
-            )
-        } else {
-            // iOS 14 及以下用这个：
-            displayLink?.preferredFramesPerSecond = UIScreen.main.maximumFramesPerSecond
-        }
-        displayLink?.add(to: .main, forMode: .common)
-    }
-
-    override func viewWillDisappear(_ animated: Bool) {
-        super.viewWillDisappear(animated)
-        // 4. 关闭 DisplayLink
-        displayLink?.invalidate()
-        displayLink = nil
-    }
-
-    @objc private func onDisplayLink(_ link: CADisplayLink) {
-        // 每一帧都“poke” 一下 webView，让它跟上：
-        webView.setNeedsDisplay()
-    
     }
 
     // MARK: –– UITextFieldDelegate
