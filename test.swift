@@ -10,7 +10,7 @@ class BrowserViewController: UIViewController, WKNavigationDelegate {
     override var prefersStatusBarHidden: Bool { true }
 
     // 2. 延迟底部手势
-    override var preferredScreenEdgesDeferringSystemGestures: UIRectEdge { .bottom }
+    override var preferredScreenEdgesDeferringSystemGestures: UIRectEdge { return [.top, .bottom] }
 
     override func viewDidLoad() {
         super.viewDidLoad()
