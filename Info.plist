@@ -24,17 +24,6 @@
     <key>NSAllowsArbitraryLoads</key>
     <true/>
   </dict>
-  <key>LSApplicationCategoryType</key>
-  <string>public.app-category-games</string>
-  <key>Preferred Frame Rate Range</key>
-  <dict>
-    <key>Minimum Frame Rate</key>
-    <integer>30</integer>
-    <key>Maximum Frame Rate</key>
-    <integer>120</integer>
-    <key>Preferred Frame Rate</key>
-    <integer>120</integer>
-  </dict>
   <key>UIDeviceFamily</key>
   <array>
     <integer>1</integer>
