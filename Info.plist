@@ -24,6 +24,10 @@
     <key>NSAllowsArbitraryLoads</key>
     <true/>
   </dict>
+  <key>GCSupportsGameMode</key>
+	<true/>
+	<key>LSApplicationCategoryType</key>
+	<string>public.app-category.games</string>
   <key>UIDeviceFamily</key>
   <array>
     <integer>1</integer>
