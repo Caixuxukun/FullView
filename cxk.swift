@@ -105,7 +105,14 @@ class BrowserViewController: UIViewController, WKNavigationDelegate, UITextField
 
     // —— 新增：每帧回调 —— //
     @objc private func tick(_ link: CADisplayLink) {
-        let js = "window.drawFrame(\(link.timestamp));"
+        let js = """
+        (function(){
+            const fn = window.drawFrame;
+            if (typeof fn === 'function') {
+                fn(\(link.timestamp));
+            }
+        })();
+        """
         webView.evaluateJavaScript(js) { result, error in
             if let error = error {
                 print("⚠️ JS 调用失败:", error)
