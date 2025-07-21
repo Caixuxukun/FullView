@@ -1,7 +1,44 @@
 import UIKit
 import WebKit
-import QuartzCore
+import UIKit
 
+/// 永久“申请”高刷率的管理器
+class HighFPSManager {
+    private var displayLink: CADisplayLink?
+
+    /// 启动高刷申请（直到你手动 stop）
+    func start(preferred: Float = 120) {
+        guard displayLink == nil else { return }  // 避免重复创建
+
+        // 1. Info.plist 里已设置 CADisableMinimumFrameDurationOnPhone = true
+        // 2. 取设备支持的最大刷新率
+        let maxFPS = Float(UIScreen.main.maximumFramesPerSecond)
+
+        // 3. 构造首选范围
+        let range = CAFrameRateRange(
+            minimum: 30,
+            maximum: maxFPS,
+            preferred: preferred
+        )
+
+        // 4. 创建并配置 DisplayLink
+        let dl = CADisplayLink(target: self, selector: #selector(dummyTick(_:)))
+        dl.preferredFrameRateRange = range
+        dl.add(to: .main, forMode: .common)
+
+        displayLink = dl
+    }
+
+    /// 停止高刷申请
+    func stop() {
+        displayLink?.invalidate()
+        displayLink = nil
+    }
+
+    @objc private func dummyTick(_ link: CADisplayLink) {
+        // 空方法，只用来保持 DisplayLink 存活
+    }
+}
 // MARK: –– 浏览器控制器
 class BrowserViewController: UIViewController, WKNavigationDelegate, UITextFieldDelegate {
     private var webView: WKWebView!
@@ -63,10 +100,8 @@ class BrowserViewController: UIViewController, WKNavigationDelegate, UITextField
         dl.add(to: .main, forMode: .common)
         displayLink = dl
         // 在 viewDidLoad 或 didFinish 导航时机：
-        if #available(iOS 15.0, *) {
-            webView.layer.preferredFrameRateRange =
-                CAFrameRateRange(minimum: 120, maximum: 120, preferred: 120)
-        }
+        let fpsManager = HighFPSManager()
+        fpsManager.start(preferred: 120)  // 从此开始无限申请 120Hz
         let stub = WKUserScript(
             source: "window.drawFrame = window.drawFrame || function(){};",
             injectionTime: .atDocumentStart,
