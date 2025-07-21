@@ -105,12 +105,10 @@ class BrowserViewController: UIViewController, WKNavigationDelegate, UITextField
 
     // —— 新增：每帧回调 —— //
     @objc private func tick(_ link: CADisplayLink) {
-        // 这里把 CADisplayLink 的 timestamp 传给 JS
-        // JS 端需要实现 window.drawFrame(timestamp)
         let js = "window.drawFrame(\(link.timestamp));"
-        webView.callAsyncJavaScript(js, in: nil) { _, error in
-            if let err = error {
-                print("⚠️ JS 调用出错:", err)
+        webView.evaluateJavaScript(js) { result, error in
+            if let error = error {
+                print("⚠️ JS 调用失败:", error)
             }
         }
     }
