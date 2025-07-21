@@ -61,6 +61,12 @@ class BrowserViewController: UIViewController, WKNavigationDelegate, UITextField
         }
         dl.add(to: .main, forMode: .common)
         displayLink = dl
+        let stub = WKUserScript(
+            source: "window.drawFrame = window.drawFrame || function(){};",
+            injectionTime: .atDocumentStart,
+            forMainFrameOnly: true
+        )
+        webView.configuration.userContentController.addUserScript(stub)
     }
 
     // MARK: –– WKNavigationDelegate
