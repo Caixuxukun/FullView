@@ -61,6 +61,11 @@ class BrowserViewController: UIViewController, WKNavigationDelegate, UITextField
         }
         dl.add(to: .main, forMode: .common)
         displayLink = dl
+        // 在 viewDidLoad 或 didFinish 导航时机：
+        if #available(iOS 15.0, *) {
+            webView.layer.preferredFrameRateRange =
+                CAFrameRateRange(minimum: 120, maximum: 120, preferred: 120)
+        }
         let stub = WKUserScript(
             source: "window.drawFrame = window.drawFrame || function(){};",
             injectionTime: .atDocumentStart,
