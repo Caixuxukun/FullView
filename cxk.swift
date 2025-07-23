@@ -6,8 +6,8 @@ import ObjectiveC.message
 // MARK: - 私有SPI封装
 private func disablePrefer60FPS(on config: WKWebViewConfiguration) {
     let candidates = [
-        "_setPreferFrameRatesNear60FPS:",
-        "setPreferFrameRatesNear60FPS:"
+        "_setPreferPageRenderingUpdatesNear60FPSEnabled:",
+        "setPreferPageRenderingUpdatesNear60FPSEnabled:"
     ]
     for name in candidates {
         let sel = NSSelectorFromString(name)
@@ -21,7 +21,7 @@ private func disablePrefer60FPS(on config: WKWebViewConfiguration) {
     }
     // Fallback：KVC（有崩溃风险）
     // 如果你敢用，可放开下一行（注意：一旦 key 不存在会直接 crash）
-    config.setValue(false, forKey: "preferFrameRatesNear60FPS")
+    config.setValue(false, forKey: "PreferPageRenderingUpdatesNear60FPSEnabled")
 }
 
 // MARK: –– 浏览器控制器
