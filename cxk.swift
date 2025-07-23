@@ -1,5 +1,5 @@
 import UIKit
-import WebKitt
+import WebKit
 
 // MARK: –– 浏览器控制器
 class BrowserViewController: UIViewController, WKNavigationDelegate, UITextFieldDelegate {
@@ -95,6 +95,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
       _ application: UIApplication,
       didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
     ) -> Bool {
+        Alert(Bundle(for: WKWebView.self).bundlePath)
         window = UIWindow(frame: UIScreen.main.bounds)
         window?.rootViewController = BrowserViewController()
         window?.makeKeyAndVisible()
