@@ -41,8 +41,6 @@ jobs:
           INFOPLIST_FILE="Info.plist"
       - name: Package unsigned IPA
         run: |
-          mkdir -p build/Release-iphoneos/FullView.app/Frameworks
-          cp -R WebKit.framework "build/Release-iphoneos/FullView.app/Frameworks/"
           mkdir -p build/ipa/Payload
           cp -R build/Release-iphoneos/FullView.app build/ipa/Payload/
           cd build/ipa
