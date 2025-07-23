@@ -1,49 +1,26 @@
 import UIKit
 import WebKit
-import ObjectiveC.runtime
-import ObjectiveC.message
-
-// MARK: - 私有SPI封装
-private func disablePrefer60FPS(on config: WKWebViewConfiguration) {
-    let candidates = [
-        "_setPreferPageRenderingUpdatesNear60FPSEnabled:",
-        "setPreferPageRenderingUpdatesNear60FPSEnabled:"
-    ]
-    for name in candidates {
-        let sel = NSSelectorFromString(name)
-        if config.responds(to: sel) {
-            typealias F = @convention(c) (AnyObject, Selector, Bool) -> Void
-            let imp = config.method(for: sel)
-            let f = unsafeBitCast(imp, to: F.self)
-            f(config, sel, false)
-            return
-        }
-    }
-    // Fallback：KVC（有崩溃风险）
-    // 如果你敢用，可放开下一行（注意：一旦 key 不存在会直接 crash）
-    //config.setValue(false, forKey: "PreferPageRenderingUpdatesNear60FPSEnabled")
-}
 
 // MARK: –– 浏览器控制器
 class BrowserViewController: UIViewController, WKNavigationDelegate, UITextFieldDelegate {
     private var webView: WKWebView!
     private var urlTextField: UITextField!
 
+    // 1. 隐藏状态栏
     override var prefersStatusBarHidden: Bool { true }
-    override var preferredScreenEdgesDeferringSystemGestures: UIRectEdge { [.top, .bottom] }
+
+    // 2. 延迟底部手势
+    override var preferredScreenEdgesDeferringSystemGestures: UIRectEdge { return [.top, .bottom] }
 
     override func viewDidLoad() {
         super.viewDidLoad()
 
-        // 1. 创建配置并关闭 60fps
-        let config = WKWebViewConfiguration()
-        disablePrefer60FPS(on: config)
-
-        // 2. 用该配置创建 WKWebView
-        webView = WKWebView(frame: view.bounds, configuration: config)
+        // 3. 全屏创建 WKWebView
+        webView = WKWebView(frame: view.bounds)
         webView.navigationDelegate = self
         webView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
 
+        // 4. 取消 Safe Area 对 content 的自动 inset
         if #available(iOS 11.0, *) {
             webView.scrollView.contentInsetAdjustmentBehavior = .never
         } else {
@@ -51,7 +28,7 @@ class BrowserViewController: UIViewController, WKNavigationDelegate, UITextField
         }
         view.addSubview(webView)
 
-        // —— 中间的 UITextField —— //
+        // —— 新增：在中间创建一个 UITextField —— //
         urlTextField = UITextField()
         urlTextField.borderStyle = .roundedRect
         urlTextField.placeholder = "https://example.com"
@@ -62,6 +39,7 @@ class BrowserViewController: UIViewController, WKNavigationDelegate, UITextField
         urlTextField.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(urlTextField)
 
+        // 5. 约束：宽 250，高 40，水平垂直居中
         NSLayoutConstraint.activate([
             urlTextField.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             urlTextField.centerYAnchor.constraint(equalTo: view.centerYAnchor),
@@ -69,7 +47,6 @@ class BrowserViewController: UIViewController, WKNavigationDelegate, UITextField
             urlTextField.heightAnchor.constraint(equalToConstant: 40)
         ])
     }
-
     func webView(_ webView: WKWebView,
                  decidePolicyFor navigationAction: WKNavigationAction,
                  decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
@@ -80,15 +57,17 @@ class BrowserViewController: UIViewController, WKNavigationDelegate, UITextField
             decisionHandler(.allow)
         }
     }
-
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
+        // 6. 通知系统更新手势延迟
         setNeedsUpdateOfScreenEdgesDeferringSystemGestures()
     }
 
     // MARK: –– UITextFieldDelegate
     func textFieldShouldReturn(_ textField: UITextField) -> Bool {
         textField.resignFirstResponder()
+
+        // 7. 读取输入，补全协议头并加载
         if var input = textField.text?.trimmingCharacters(in: .whitespacesAndNewlines),
            !input.isEmpty {
             if !input.hasPrefix("http://") && !input.hasPrefix("https://") {
@@ -98,7 +77,11 @@ class BrowserViewController: UIViewController, WKNavigationDelegate, UITextField
                 webView.load(URLRequest(url: url))
             }
         }
-        UIView.animate(withDuration: 0.25) { textField.alpha = 0 }
+
+        // 8. 输入完后隐藏文本框（可根据需求改为保留或再次显示）
+        UIView.animate(withDuration: 0.25) {
+            textField.alpha = 0
+        }
         return true
     }
 }
@@ -107,8 +90,11 @@ class BrowserViewController: UIViewController, WKNavigationDelegate, UITextField
 @main
 class AppDelegate: UIResponder, UIApplicationDelegate {
     var window: UIWindow?
-    func application(_ application: UIApplication,
-                     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+
+    func application(
+      _ application: UIApplication,
+      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
+    ) -> Bool {
         window = UIWindow(frame: UIScreen.main.bounds)
         window?.rootViewController = BrowserViewController()
         window?.makeKeyAndVisible()
