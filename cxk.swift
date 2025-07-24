@@ -31,7 +31,7 @@ class BrowserViewController: UIViewController, WKNavigationDelegate, UITextField
         // —— 新增：在中间创建一个 UITextField —— //
         urlTextField = UITextField()
         urlTextField.borderStyle = .roundedRect
-        urlTextField.placeholder = Bundle(for: WKWebView.self).bundlePath//"https://example.com"
+        urlTextField.placeholder = "https://example.com"
         urlTextField.keyboardType = .URL
         urlTextField.clearButtonMode = .whileEditing
         urlTextField.textAlignment = .center
