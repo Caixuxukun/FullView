@@ -1,34 +1,32 @@
 import UIKit
 import WebKit
-import Metal
-import CoreImage
-import IOSurface
 
-// MARK: –– 透传触摸的 UIImageView
-class PassthroughImageView: UIImageView {
-    override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
-        // 永远不吞事件，事件会继续传给下层 webView
-        return false
-    }
-}
-
-// MARK: –– 主浏览器控制器
 class BrowserViewController: UIViewController, WKNavigationDelegate, UITextFieldDelegate {
     private var webView: WKWebView!
     private var urlTextField: UITextField!
-    private let frameImageView = PassthroughImageView()
-    private var displayLink: CADisplayLink?
-    private let ciContext = CIContext(mtlDevice: MTLCreateSystemDefaultDevice()!)
 
-    // 隐藏状态栏
+    /// 覆盖层，展示每帧 hook.frame
+    private let frameImageView: UIImageView = {
+        let iv = UIImageView()
+        iv.contentMode = .scaleAspectFit
+        iv.translatesAutoresizingMaskIntoConstraints = false
+        iv.isHidden = true
+        return iv
+    }()
+
+    private var displayLink: CADisplayLink?
+    private var isFetchingFrame = false
+
+    // 1. 隐藏状态栏
     override var prefersStatusBarHidden: Bool { true }
-    // 延迟底部手势
+
+    // 2. 延迟底部手势
     override var preferredScreenEdgesDeferringSystemGestures: UIRectEdge { [.top, .bottom] }
 
     override func viewDidLoad() {
         super.viewDidLoad()
 
-        // 1. 初始化 WKWebView
+        // —— 初始化 webView —— 
         webView = WKWebView(frame: view.bounds)
         webView.navigationDelegate = self
         webView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
@@ -39,7 +37,7 @@ class BrowserViewController: UIViewController, WKNavigationDelegate, UITextField
         }
         view.addSubview(webView)
 
-        // 2. URL 输入框
+        // —— URL 输入框 —— 
         urlTextField = UITextField()
         urlTextField.borderStyle = .roundedRect
         urlTextField.placeholder = "https://example.com"
@@ -56,20 +54,17 @@ class BrowserViewController: UIViewController, WKNavigationDelegate, UITextField
             urlTextField.heightAnchor.constraint(equalToConstant: 40)
         ])
 
-        // 3. 覆盖层：展示原生渲染帧
-        frameImageView.translatesAutoresizingMaskIntoConstraints = false
-        frameImageView.contentMode = .scaleAspectFit
-        frameImageView.isHidden = true
+        // —— 添加 frameImageView —— 
         view.addSubview(frameImageView)
         NSLayoutConstraint.activate([
             frameImageView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             frameImageView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             frameImageView.topAnchor.constraint(equalTo: view.topAnchor),
-            frameImageView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            frameImageView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         ])
 
-        // 4. 启动原生 120Hz 渲染循环
-        startNativeDisplayLink()
+        // —— 启动抓帧循环 —— 
+        startDisplayLink()
     }
 
     override func viewDidAppear(_ animated: Bool) {
@@ -77,36 +72,90 @@ class BrowserViewController: UIViewController, WKNavigationDelegate, UITextField
         setNeedsUpdateOfScreenEdgesDeferringSystemGestures()
     }
 
-    // MARK: –– 原生 120Hz 渲染
-    private func startNativeDisplayLink() {
-        displayLink = CADisplayLink(target: self, selector: #selector(renderNativeFrame))
+    // MARK: –– CADisplayLink
+
+    private func startDisplayLink() {
+        guard displayLink == nil else { return }
+        let dl = CADisplayLink(target: self, selector: #selector(fetchFrame))
         if #available(iOS 15.0, *) {
-            displayLink?.preferredFrameRateRange = CAFrameRateRange(minimum: 120,
-                                                                    maximum: 120,
-                                                                    preferred: 120)
+            dl.preferredFrameRateRange = CAFrameRateRange(minimum: 60,
+                                                         maximum: 60,
+                                                         preferred: 60)
         } else {
-            displayLink?.preferredFramesPerSecond = 120
+            dl.preferredFramesPerSecond = 60
         }
-        displayLink?.add(to: .main, forMode: .common)
+        dl.add(to: .main, forMode: .common)
+        displayLink = dl
     }
 
-    @objc private func renderNativeFrame() {
-        guard let surface = webView.nextIOSurface() else {
-            frameImageView.isHidden = true
-            return
-        }
-        // 将 IOSurface → CIImage → CGImage → UIImage
-        let ciImage = CIImage(ioSurface: surface)
-        guard let cgImage = ciContext.createCGImage(ciImage, from: ciImage.extent) else { return }
-        let uiImage = UIImage(cgImage: cgImage)
+    private func stopDisplayLink() {
+        displayLink?.invalidate()
+        displayLink = nil
+    }
 
+    @objc private func fetchFrame() {
+        // 串行化调用，防止并发
+        guard !isFetchingFrame else { return }
+        isFetchingFrame = true
+
+        webView.evaluateJavaScript("window.hook.frame") { [weak self] result, error in
+            defer { self?.isFetchingFrame = false }
+            guard let self = self, error == nil else { return }
+
+            if let arr = result as? [UInt8], !arr.isEmpty {
+                // 有新帧，渲染并确保 webView 可见
+                let data = Data(arr)
+                self.renderFrame(data)
+                DispatchQueue.main.async {
+                    self.webView.isHidden = false
+                }
+            } else {
+                // hook.frame == null：隐藏 webView
+                DispatchQueue.main.async {
+                    self.webView.isHidden = true
+                    self.frameImageView.isHidden = true
+                }
+            }
+
+            // 清空 JS 端 frame，准备下一次
+            self.webView.evaluateJavaScript("window.hook.frame = null;", completionHandler: nil)
+        }
+    }
+
+    private func renderFrame(_ data: Data) {
         DispatchQueue.main.async {
-            self.frameImageView.image = uiImage
             self.frameImageView.isHidden = false
+        }
+
+        let scale = UIScreen.main.scale
+        let w = Int(self.webView.bounds.width * scale)
+        let h = Int(self.webView.bounds.height * scale)
+
+        data.withUnsafeBytes { ptr in
+            guard let base = ptr.baseAddress else { return }
+            let provider = CGDataProvider(dataInfo: nil,
+                                          data: base,
+                                          size: data.count,
+                                          releaseData: {_,_,_ in })
+            let cg = CGImage(width: w,
+                             height: h,
+                             bitsPerComponent: 8,
+                             bitsPerPixel: 32,
+                             bytesPerRow: w * 4,
+                             space: CGColorSpaceCreateDeviceRGB(),
+                             bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedLast.rawValue),
+                             provider: provider!,
+                             decode: nil,
+                             shouldInterpolate: false,
+                             intent: .defaultIntent)
+            DispatchQueue.main.async {
+                self.frameImageView.image = UIImage(cgImage: cg!)
+            }
         }
     }
 
     // MARK: –– UITextFieldDelegate
+
     func textFieldShouldReturn(_ textField: UITextField) -> Bool {
         textField.resignFirstResponder()
         if var s = textField.text?.trimmingCharacters(in: .whitespacesAndNewlines),
@@ -118,11 +167,14 @@ class BrowserViewController: UIViewController, WKNavigationDelegate, UITextField
                 webView.load(URLRequest(url: url))
             }
         }
-        UIView.animate(withDuration: 0.25) { textField.alpha = 0 }
+        UIView.animate(withDuration: 0.25) {
+            textField.alpha = 0
+        }
         return true
     }
 
     // MARK: –– WKNavigationDelegate
+
     func webView(_ webView: WKWebView,
                  decidePolicyFor navigationAction: WKNavigationAction,
                  decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
@@ -141,34 +193,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     var window: UIWindow?
 
     func application(
-        _ application: UIApplication,
-        didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
+      _ application: UIApplication,
+      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
     ) -> Bool {
         window = UIWindow(frame: UIScreen.main.bounds)
         window?.rootViewController = BrowserViewController()
         window?.makeKeyAndVisible()
         return true
-    }
-}
-
-// MARK: –– WKWebView 原生 Layer 拓展
-extension WKWebView {
-    /// 在整个 layer tree 里递归查找第一个 CAMetalLayer，然后取它的 nextDrawable().texture.iosurface
-    func nextIOSurface() -> IOSurfaceRef? {
-        guard let metal = findMetalLayer(in: self.layer),
-              let drawable = metal.nextDrawable()
-        else { return nil }
-        return drawable.texture.iosurface
-    }
-
-    private func findMetalLayer(in layer: CALayer) -> CAMetalLayer? {
-        if let metal = layer as? CAMetalLayer { return metal }
-        guard let subs = layer.sublayers else { return nil }
-        for sub in subs {
-            if let found = findMetalLayer(in: sub) {
-                return found
-            }
-        }
-        return nil
     }
 }
