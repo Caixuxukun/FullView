@@ -1,13 +1,11 @@
 import UIKit
 import WebKit
 import Metal
-import CoreImage
 import IOSurface
 
 // MARK: –– 透传触摸的 UIImageView
 class PassthroughImageView: UIImageView {
     override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
-        // 永远不吞事件，事件会继续传给下层 webView
         return false
     }
 }
@@ -18,17 +16,25 @@ class BrowserViewController: UIViewController, WKNavigationDelegate, UITextField
     private var urlTextField: UITextField!
     private let frameImageView = PassthroughImageView()
     private var displayLink: CADisplayLink?
-    private let ciContext = CIContext(mtlDevice: MTLCreateSystemDefaultDevice()!)
 
     // 隐藏状态栏
     override var prefersStatusBarHidden: Bool { true }
-    // 延迟底部手势
     override var preferredScreenEdgesDeferringSystemGestures: UIRectEdge { [.top, .bottom] }
+
+    // JS 片段：隐藏/显示页面按钮
+    private let hideButtonsJS = """
+      document.getElementById('startBtn')?.style.setProperty('display','none','important');
+      document.getElementById('stopBtn')?.style.setProperty('display','none','important');
+    """
+    private let showButtonsJS = """
+      document.getElementById('startBtn')?.style.removeProperty('display');
+      document.getElementById('stopBtn')?.style.removeProperty('display');
+    """
 
     override func viewDidLoad() {
         super.viewDidLoad()
 
-        // 1. 初始化 WKWebView
+        // 1. WKWebView
         webView = WKWebView(frame: view.bounds)
         webView.navigationDelegate = self
         webView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
@@ -56,10 +62,11 @@ class BrowserViewController: UIViewController, WKNavigationDelegate, UITextField
             urlTextField.heightAnchor.constraint(equalToConstant: 40)
         ])
 
-        // 3. 覆盖层：展示原生渲染帧
+        // 3. 覆盖层：直接把 IOSurface 贴到 layer.contents
         frameImageView.translatesAutoresizingMaskIntoConstraints = false
         frameImageView.contentMode = .scaleAspectFit
         frameImageView.isHidden = true
+        frameImageView.layer.contentsGravity = .resizeAspect
         view.addSubview(frameImageView)
         NSLayoutConstraint.activate([
             frameImageView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
@@ -68,12 +75,16 @@ class BrowserViewController: UIViewController, WKNavigationDelegate, UITextField
             frameImageView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
         ])
 
-        // 4. 启动原生 120Hz 渲染循环
+        // 4. 强制 120Hz 渲染
         startNativeDisplayLink()
     }
 
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
+        // iOS15+ 可显式设置屏幕最大帧率
+        if #available(iOS 15.0, *) {
+            view.window?.windowScene?.screen.maximumFramesPerSecond = 120
+        }
         setNeedsUpdateOfScreenEdgesDeferringSystemGestures()
     }
 
@@ -91,19 +102,20 @@ class BrowserViewController: UIViewController, WKNavigationDelegate, UITextField
     }
 
     @objc private func renderNativeFrame() {
-        // 如果能拿到底层的 IOSurface，就隐藏 webView、显示原生渲染帧
         if let surface = webView.nextIOSurface() {
-            let ciImage = CIImage(ioSurface: surface)
-            guard let cgImage = ciContext.createCGImage(ciImage, from: ciImage.extent) else { return }
-            let uiImage = UIImage(cgImage: cgImage)
+            // 隐藏原生网页并隐藏按钮
+            webView.isHidden = true
+            webView.evaluateJavaScript(hideButtonsJS, completionHandler: nil)
 
+            // 直接把 IOSurface 贴到 layer.contents
             DispatchQueue.main.async {
-                self.webView.isHidden = true
-                self.frameImageView.image = uiImage
+                self.frameImageView.layer.contentsScale = UIScreen.main.scale
+                self.frameImageView.layer.contents = surface
                 self.frameImageView.isHidden = false
             }
         } else {
-            // 拿不到 frame 时，恢复显示 webView
+            // 恢复原生网页和按钮
+            webView.evaluateJavaScript(showButtonsJS, completionHandler: nil)
             DispatchQueue.main.async {
                 self.webView.isHidden = false
                 self.frameImageView.isHidden = true
@@ -158,7 +170,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
 // MARK: –– WKWebView 原生 Layer 拓展
 extension WKWebView {
-    /// 在 layer 树中递归查找第一个 CAMetalLayer，并取它的 nextDrawable().texture.iosurface
+    /// 递归查找第一个 CAMetalLayer，然后取它的 nextDrawable().texture.iosurface
     func nextIOSurface() -> IOSurfaceRef? {
         guard let metalLayer = findMetalLayer(in: layer),
               let drawable = metalLayer.nextDrawable()
