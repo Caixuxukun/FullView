@@ -1,13 +1,20 @@
 import UIKit
 import WebKit
 
+/// 一个永远不 “吞” 事件、把触摸全部透传给下层 webView 的 UIImageView
+class PassthroughImageView: UIImageView {
+    override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
+        return false
+    }
+}
+
 class BrowserViewController: UIViewController, WKNavigationDelegate, UITextFieldDelegate {
     private var webView: WKWebView!
     private var urlTextField: UITextField!
 
-    /// 覆盖层，展示每帧 hook.frame
-    private let frameImageView: UIImageView = {
-        let iv = UIImageView()
+    /// 覆盖层，用来显示原生渲染的帧
+    private let frameImageView: PassthroughImageView = {
+        let iv = PassthroughImageView()
         iv.contentMode = .scaleAspectFit
         iv.translatesAutoresizingMaskIntoConstraints = false
         iv.isHidden = true
@@ -19,14 +26,13 @@ class BrowserViewController: UIViewController, WKNavigationDelegate, UITextField
 
     // 1. 隐藏状态栏
     override var prefersStatusBarHidden: Bool { true }
-
-    // 2. 延迟底部手势
+    // 2. 延迟系统底部手势
     override var preferredScreenEdgesDeferringSystemGestures: UIRectEdge { [.top, .bottom] }
 
     override func viewDidLoad() {
         super.viewDidLoad()
 
-        // —— 初始化 webView —— 
+        // —— WKWebView —— //
         webView = WKWebView(frame: view.bounds)
         webView.navigationDelegate = self
         webView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
@@ -37,7 +43,7 @@ class BrowserViewController: UIViewController, WKNavigationDelegate, UITextField
         }
         view.addSubview(webView)
 
-        // —— URL 输入框 —— 
+        // —— URL 输入框 —— //
         urlTextField = UITextField()
         urlTextField.borderStyle = .roundedRect
         urlTextField.placeholder = "https://example.com"
@@ -54,7 +60,7 @@ class BrowserViewController: UIViewController, WKNavigationDelegate, UITextField
             urlTextField.heightAnchor.constraint(equalToConstant: 40)
         ])
 
-        // —— 添加 frameImageView —— 
+        // —— 覆盖层 —— //
         view.addSubview(frameImageView)
         NSLayoutConstraint.activate([
             frameImageView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
@@ -63,7 +69,7 @@ class BrowserViewController: UIViewController, WKNavigationDelegate, UITextField
             frameImageView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         ])
 
-        // —— 启动抓帧循环 —— 
+        // —— 启动 120Hz 拉取 —— //
         startDisplayLink()
     }
 
@@ -78,11 +84,11 @@ class BrowserViewController: UIViewController, WKNavigationDelegate, UITextField
         guard displayLink == nil else { return }
         let dl = CADisplayLink(target: self, selector: #selector(fetchFrame))
         if #available(iOS 15.0, *) {
-            dl.preferredFrameRateRange = CAFrameRateRange(minimum: 60,
-                                                         maximum: 60,
-                                                         preferred: 60)
+            dl.preferredFrameRateRange = CAFrameRateRange(minimum: 120,
+                                                         maximum: 120,
+                                                         preferred: 120)
         } else {
-            dl.preferredFramesPerSecond = 60
+            dl.preferredFramesPerSecond = 120
         }
         dl.add(to: .main, forMode: .common)
         displayLink = dl
@@ -94,7 +100,6 @@ class BrowserViewController: UIViewController, WKNavigationDelegate, UITextField
     }
 
     @objc private func fetchFrame() {
-        // 串行化调用，防止并发
         guard !isFetchingFrame else { return }
         isFetchingFrame = true
 
@@ -103,33 +108,30 @@ class BrowserViewController: UIViewController, WKNavigationDelegate, UITextField
             guard let self = self, error == nil else { return }
 
             if let arr = result as? [UInt8], !arr.isEmpty {
-                // 有新帧，渲染并确保 webView 可见
-                let data = Data(arr)
-                self.renderFrame(data)
-                DispatchQueue.main.async {
-                    self.webView.isHidden = false
-                }
-            } else {
-                // hook.frame == null：隐藏 webView
+                // 有帧数据：隐藏 webView，显示 overlay
                 DispatchQueue.main.async {
                     self.webView.isHidden = true
+                    self.frameImageView.isHidden = false
+                }
+                let data = Data(arr)
+                self.renderFrame(data)
+            } else {
+                // 无帧数据或 null：隐藏 overlay，显示 webView
+                DispatchQueue.main.async {
                     self.frameImageView.isHidden = true
+                    self.webView.isHidden = false
                 }
             }
 
-            // 清空 JS 端 frame，准备下一次
+            // 清空 JS 端 frame
             self.webView.evaluateJavaScript("window.hook.frame = null;", completionHandler: nil)
         }
     }
 
     private func renderFrame(_ data: Data) {
-        DispatchQueue.main.async {
-            self.frameImageView.isHidden = false
-        }
-
         let scale = UIScreen.main.scale
-        let w = Int(self.webView.bounds.width * scale)
-        let h = Int(self.webView.bounds.height * scale)
+        let width = Int(webView.bounds.width * scale)
+        let height = Int(webView.bounds.height * scale)
 
         data.withUnsafeBytes { ptr in
             guard let base = ptr.baseAddress else { return }
@@ -137,19 +139,19 @@ class BrowserViewController: UIViewController, WKNavigationDelegate, UITextField
                                           data: base,
                                           size: data.count,
                                           releaseData: {_,_,_ in })
-            let cg = CGImage(width: w,
-                             height: h,
-                             bitsPerComponent: 8,
-                             bitsPerPixel: 32,
-                             bytesPerRow: w * 4,
-                             space: CGColorSpaceCreateDeviceRGB(),
-                             bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedLast.rawValue),
-                             provider: provider!,
-                             decode: nil,
-                             shouldInterpolate: false,
-                             intent: .defaultIntent)
+            let cgImage = CGImage(width: width,
+                                  height: height,
+                                  bitsPerComponent: 8,
+                                  bitsPerPixel: 32,
+                                  bytesPerRow: width * 4,
+                                  space: CGColorSpaceCreateDeviceRGB(),
+                                  bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedLast.rawValue),
+                                  provider: provider!,
+                                  decode: nil,
+                                  shouldInterpolate: false,
+                                  intent: .defaultIntent)
             DispatchQueue.main.async {
-                self.frameImageView.image = UIImage(cgImage: cg!)
+                self.frameImageView.image = UIImage(cgImage: cgImage!)
             }
         }
     }
@@ -158,12 +160,12 @@ class BrowserViewController: UIViewController, WKNavigationDelegate, UITextField
 
     func textFieldShouldReturn(_ textField: UITextField) -> Bool {
         textField.resignFirstResponder()
-        if var s = textField.text?.trimmingCharacters(in: .whitespacesAndNewlines),
-           !s.isEmpty {
-            if !s.hasPrefix("http://") && !s.hasPrefix("https://") {
-                s = "https://\(s)"
+        if var urlStr = textField.text?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !urlStr.isEmpty {
+            if !urlStr.hasPrefix("http://") && !urlStr.hasPrefix("https://") {
+                urlStr = "https://\(urlStr)"
             }
-            if let url = URL(string: s) {
+            if let url = URL(string: urlStr) {
                 webView.load(URLRequest(url: url))
             }
         }
@@ -188,6 +190,7 @@ class BrowserViewController: UIViewController, WKNavigationDelegate, UITextField
 }
 
 // MARK: –– 应用入口
+
 @main
 class AppDelegate: UIResponder, UIApplicationDelegate {
     var window: UIWindow?
