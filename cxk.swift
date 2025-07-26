@@ -5,6 +5,12 @@ class BrowserViewController: UIViewController, WKNavigationDelegate, UITextField
     private var webView: WKWebView!
     private var urlTextField: UITextField!
 
+    // 1. 隐藏状态栏
+    override var prefersStatusBarHidden: Bool { true }
+
+    // 2. 延迟底部手势
+    override var preferredScreenEdgesDeferringSystemGestures: UIRectEdge { return [.top, .bottom] }
+    
     /// 用于展示每一帧
     private let frameImageView: UIImageView = {
         let iv = UIImageView()
