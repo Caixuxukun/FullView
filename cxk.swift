@@ -1,6 +1,13 @@
 import UIKit
 import WebKit
 
+/// 一个永远不吞事件、永远把触摸事件传给下层的 UIImageView
+class PassthroughImageView: UIImageView {
+    override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
+        return false
+    }
+}
+
 class BrowserViewController: UIViewController, WKNavigationDelegate, UITextFieldDelegate {
     private var webView: WKWebView!
     private var urlTextField: UITextField!
@@ -9,21 +16,23 @@ class BrowserViewController: UIViewController, WKNavigationDelegate, UITextField
     override var prefersStatusBarHidden: Bool { true }
 
     // 2. 延迟底部手势
-    override var preferredScreenEdgesDeferringSystemGestures: UIRectEdge { return [.top, .bottom] }
-    
-    /// 用于展示每一帧
-    private let frameImageView: UIImageView = {
-        let iv = UIImageView()
+    override var preferredScreenEdgesDeferringSystemGestures: UIRectEdge { [.top, .bottom] }
+
+    /// 用于展示每一帧，并且透传所有触摸事件
+    private let frameImageView: PassthroughImageView = {
+        let iv = PassthroughImageView()
         iv.contentMode = .scaleAspectFit
         iv.translatesAutoresizingMaskIntoConstraints = false
+        iv.isHidden = true    // 默认隐藏，拿到帧后再显示
         return iv
     }()
     private var displayLink: CADisplayLink?
+    private var isFetchingFrame = false
 
     override func viewDidLoad() {
         super.viewDidLoad()
 
-        // 1. 创建 WKWebView（不再注入 hook 脚本，假定已在页面里完成）
+        // 1. 创建 WKWebView（假定 hook 脚本已在网页内注入）
         webView = WKWebView(frame: view.bounds)
         webView.navigationDelegate = self
         webView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
@@ -34,7 +43,7 @@ class BrowserViewController: UIViewController, WKNavigationDelegate, UITextField
         }
         view.addSubview(webView)
 
-        // 2. URL 输入框（同之前）
+        // 2. URL 输入框
         urlTextField = UITextField()
         urlTextField.borderStyle = .roundedRect
         urlTextField.placeholder = "https://example.com"
@@ -51,7 +60,7 @@ class BrowserViewController: UIViewController, WKNavigationDelegate, UITextField
             urlTextField.heightAnchor.constraint(equalToConstant: 40)
         ])
 
-        // 3. 全屏加上 frameImageView，用来覆盖显示 hook 帧
+        // 3. 全屏加上透传的 frameImageView
         view.addSubview(frameImageView)
         NSLayoutConstraint.activate([
             frameImageView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
@@ -60,7 +69,7 @@ class BrowserViewController: UIViewController, WKNavigationDelegate, UITextField
             frameImageView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         ])
 
-        // 4. 启动 120Hz 拉取循环
+        // 4. 启动拉取循环（60Hz 更稳定）
         startDisplayLink()
     }
 
@@ -75,11 +84,11 @@ class BrowserViewController: UIViewController, WKNavigationDelegate, UITextField
         guard displayLink == nil else { return }
         let dl = CADisplayLink(target: self, selector: #selector(fetchFrame))
         if #available(iOS 15.0, *) {
-            dl.preferredFrameRateRange = CAFrameRateRange(minimum: 120,
+            dl.preferredFrameRateRange = CAFrameRateRange(minimum: 60,
                                                          maximum: 120,
                                                          preferred: 120)
         } else {
-            dl.preferredFramesPerSecond = 120
+            dl.preferredFramesPerSecond = 60
         }
         dl.add(to: .main, forMode: .common)
         displayLink = dl
@@ -91,37 +100,45 @@ class BrowserViewController: UIViewController, WKNavigationDelegate, UITextField
     }
 
     @objc private func fetchFrame() {
-        // 直接从 JS 取 window.hook.frame
+        guard !isFetchingFrame else { return }
+        isFetchingFrame = true
+
         webView.evaluateJavaScript("window.hook.frame") { [weak self] result, error in
-            guard let self = self, error == nil,
-                  let arr = result as? [UInt8], !arr.isEmpty
-            else { return }
+            defer { self?.isFetchingFrame = false }
+            guard let self = self, error == nil else { return }
 
-            let data = Data(arr)
-            self.renderFrame(data)
-
-            // 取完立即清空，确保下一次只拿新帧
+            if let arr = result as? [UInt8], !arr.isEmpty {
+                let data = Data(arr)
+                self.showFrame(data)
+            } else {
+                // 没有帧数据时隐藏覆盖层
+                DispatchQueue.main.async {
+                    self.frameImageView.isHidden = true
+                }
+            }
+            // 清空 JS 端 frame
             self.webView.evaluateJavaScript("window.hook.frame = null;", completionHandler: nil)
         }
     }
 
-    private func renderFrame(_ data: Data) {
-        // 假设 hook.frame 是 RGBA raw，尺寸与 webView 一致（按 scale 计算）
+    private func showFrame(_ data: Data) {
+        DispatchQueue.main.async {
+            self.frameImageView.isHidden = false
+        }
         let scale = UIScreen.main.scale
-        let width = Int(webView.bounds.width * scale)
-        let height = Int(webView.bounds.height * scale)
-
+        let w = Int(self.webView.bounds.width * scale)
+        let h = Int(self.webView.bounds.height * scale)
         data.withUnsafeBytes { ptr in
             guard let base = ptr.baseAddress else { return }
             let provider = CGDataProvider(dataInfo: nil,
                                           data: base,
                                           size: data.count,
-                                          releaseData: { _,_,_ in })
-            let cg = CGImage(width: width,
-                             height: height,
+                                          releaseData: {_,_,_ in })
+            let cg = CGImage(width: w,
+                             height: h,
                              bitsPerComponent: 8,
                              bitsPerPixel: 32,
-                             bytesPerRow: width * 4,
+                             bytesPerRow: w * 4,
                              space: CGColorSpaceCreateDeviceRGB(),
                              bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedLast.rawValue),
                              provider: provider!,
@@ -147,9 +164,7 @@ class BrowserViewController: UIViewController, WKNavigationDelegate, UITextField
                 webView.load(URLRequest(url: url))
             }
         }
-        UIView.animate(withDuration: 0.25) {
-            textField.alpha = 0
-        }
+        UIView.animate(withDuration: 0.25) { textField.alpha = 0 }
         return true
     }
 
@@ -166,6 +181,7 @@ class BrowserViewController: UIViewController, WKNavigationDelegate, UITextField
         }
     }
 }
+
 // MARK: –– 应用入口
 @main
 class AppDelegate: UIResponder, UIApplicationDelegate {
