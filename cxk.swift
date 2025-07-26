@@ -19,6 +19,7 @@ class BrowserViewController: UIViewController, WKNavigationDelegate, UITextField
 
     // 隐藏状态栏
     override var prefersStatusBarHidden: Bool { true }
+    // 延迟系统底部手势
     override var preferredScreenEdgesDeferringSystemGestures: UIRectEdge { [.top, .bottom] }
 
     // JS 片段：隐藏/显示页面按钮
@@ -75,37 +76,32 @@ class BrowserViewController: UIViewController, WKNavigationDelegate, UITextField
             frameImageView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
         ])
 
-        // 4. 强制 120Hz 渲染
-        startNativeDisplayLink()
+        // 4. 启动 120Hz CADisplayLink
+        startDisplayLink()
     }
 
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
-        // iOS 15+：请求 WindowScene 的渲染帧率上限为 120Hz
-        if #available(iOS 15.0, *) {
-            view.window?.windowScene?.preferredFrameRateRange = CAFrameRateRange(
-                minimum: 120, maximum: 120, preferred: 120
-            )
-        }
-        setNeedsUpdateOfScreenEdgesDeferringSystemGestures()
+        // 不做任何 windowScene/screen 的额外设置
     }
 
-    // MARK: –– 原生 120Hz 渲染
-    private func startNativeDisplayLink() {
-        displayLink = CADisplayLink(target: self, selector: #selector(renderNativeFrame))
+    // MARK: –– CADisplayLink 120Hz
+    private func startDisplayLink() {
+        let dl = CADisplayLink(target: self, selector: #selector(renderNativeFrame))
         if #available(iOS 15.0, *) {
-            displayLink?.preferredFrameRateRange = CAFrameRateRange(
-                minimum: 120, maximum: 120, preferred: 120
-            )
+            dl.preferredFrameRateRange = CAFrameRateRange(minimum: 120,
+                                                         maximum: 120,
+                                                         preferred: 120)
         } else {
-            displayLink?.preferredFramesPerSecond = 120
+            dl.preferredFramesPerSecond = 120
         }
-        displayLink?.add(to: .main, forMode: .common)
+        dl.add(to: .main, forMode: .common)
+        displayLink = dl
     }
 
     @objc private func renderNativeFrame() {
         if let surface = webView.nextIOSurface() {
-            // 隐藏原生网页并隐藏按钮
+            // 拿到 surface 就隐藏 webView 并隐藏 HTML 按钮
             webView.isHidden = true
             webView.evaluateJavaScript(hideButtonsJS, completionHandler: nil)
 
@@ -116,7 +112,7 @@ class BrowserViewController: UIViewController, WKNavigationDelegate, UITextField
                 self.frameImageView.isHidden = false
             }
         } else {
-            // 恢复原生网页和按钮
+            // 没拿到 surface，就恢复 webView 和按钮
             webView.evaluateJavaScript(showButtonsJS, completionHandler: nil)
             DispatchQueue.main.async {
                 self.webView.isHidden = false
@@ -158,7 +154,6 @@ class BrowserViewController: UIViewController, WKNavigationDelegate, UITextField
 @main
 class AppDelegate: UIResponder, UIApplicationDelegate {
     var window: UIWindow?
-
     func application(
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
@@ -172,19 +167,19 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
 // MARK: –– WKWebView 原生 Layer 拓展
 extension WKWebView {
-    /// 递归查找第一个 CAMetalLayer，并取它的 nextDrawable().texture.iosurface
+    /// 递归查找 layer 树中的第一个 CAMetalLayer，并取它的 nextDrawable().texture.iosurface
     func nextIOSurface() -> IOSurfaceRef? {
-        guard let metalLayer = findMetalLayer(in: layer),
+        guard let metalLayer = findMetal(in: layer),
               let drawable = metalLayer.nextDrawable()
         else { return nil }
         return drawable.texture.iosurface
     }
 
-    private func findMetalLayer(in layer: CALayer) -> CAMetalLayer? {
-        if let metal = layer as? CAMetalLayer { return metal }
+    private func findMetal(in layer: CALayer) -> CAMetalLayer? {
+        if let m = layer as? CAMetalLayer { return m }
         for sub in layer.sublayers ?? [] {
-            if let found = findMetalLayer(in: sub) { return found }
-        }
+            if let found = findMetal(in: sub) { return found }
+                }
         return nil
     }
 }
