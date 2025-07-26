@@ -22,7 +22,7 @@ class BrowserViewController: UIViewController, WKNavigationDelegate, UITextField
 
     // 隐藏状态栏
     override var prefersStatusBarHidden: Bool { true }
-    // 延迟系统底部手势
+    // 延迟底部手势
     override var preferredScreenEdgesDeferringSystemGestures: UIRectEdge { [.top, .bottom] }
 
     override func viewDidLoad() {
@@ -40,7 +40,7 @@ class BrowserViewController: UIViewController, WKNavigationDelegate, UITextField
         view.addSubview(webView)
 
         // 2. URL 输入框
-        urlTextField = UITextField(frame: .zero)
+        urlTextField = UITextField()
         urlTextField.borderStyle = .roundedRect
         urlTextField.placeholder = "https://example.com"
         urlTextField.keyboardType = .URL
@@ -118,9 +118,7 @@ class BrowserViewController: UIViewController, WKNavigationDelegate, UITextField
                 webView.load(URLRequest(url: url))
             }
         }
-        UIView.animate(withDuration: 0.25) {
-            textField.alpha = 0
-        }
+        UIView.animate(withDuration: 0.25) { textField.alpha = 0 }
         return true
     }
 
@@ -153,28 +151,24 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     }
 }
 
-// MARK: –– WKWebView 私有 API 扩展
+// MARK: –– WKWebView 原生 Layer 拓展
 extension WKWebView {
-    /// 取出内部 CAMetalLayer 的下一个 IOSurface
+    /// 在整个 layer tree 里递归查找第一个 CAMetalLayer，然后取它的 nextDrawable().texture.iosurface
     func nextIOSurface() -> IOSurfaceRef? {
-        // 1. 拿到私有的 content view
-        guard let scroll = value(forKey: "scrollView") as? UIScrollView,
-              let wkContent = scroll.value(forKey: "web_DynamicViewportContentView") as? UIView
+        guard let metal = findMetalLayer(in: self.layer),
+              let drawable = metal.nextDrawable()
         else { return nil }
-
-        // 2. 递归查找 Metal Layer
-        func findMetalLayer(in layer: CALayer) -> CAMetalLayer? {
-            if let metal = layer as? CAMetalLayer { return metal }
-            for sub in layer.sublayers ?? [] {
-                if let m = findMetalLayer(in: sub) { return m }
-            }
-            return nil
-        }
-
-        guard let metalLayer = findMetalLayer(in: wkContent.layer),
-              let drawable = metalLayer.nextDrawable()
-        else { return nil }
-
         return drawable.texture.iosurface
+    }
+
+    private func findMetalLayer(in layer: CALayer) -> CAMetalLayer? {
+        if let metal = layer as? CAMetalLayer { return metal }
+        guard let subs = layer.sublayers else { return nil }
+        for sub in subs {
+            if let found = findMetalLayer(in: sub) {
+                return found
+            }
+        }
+        return nil
     }
 }
