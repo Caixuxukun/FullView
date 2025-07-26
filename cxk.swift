@@ -34,7 +34,7 @@ class BrowserViewController: UIViewController, WKNavigationDelegate, UITextField
     override func viewDidLoad() {
         super.viewDidLoad()
 
-        // 1. WKWebView
+        // 1. 初始化 WKWebView
         webView = WKWebView(frame: view.bounds)
         webView.navigationDelegate = self
         webView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
@@ -81,9 +81,11 @@ class BrowserViewController: UIViewController, WKNavigationDelegate, UITextField
 
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
-        // iOS15+ 可显式设置屏幕最大帧率
+        // iOS 15+：请求 WindowScene 的渲染帧率上限为 120Hz
         if #available(iOS 15.0, *) {
-            view.window?.windowScene?.screen.maximumFramesPerSecond = 120
+            view.window?.windowScene?.preferredFrameRateRange = CAFrameRateRange(
+                minimum: 120, maximum: 120, preferred: 120
+            )
         }
         setNeedsUpdateOfScreenEdgesDeferringSystemGestures()
     }
@@ -92,9 +94,9 @@ class BrowserViewController: UIViewController, WKNavigationDelegate, UITextField
     private func startNativeDisplayLink() {
         displayLink = CADisplayLink(target: self, selector: #selector(renderNativeFrame))
         if #available(iOS 15.0, *) {
-            displayLink?.preferredFrameRateRange = CAFrameRateRange(minimum: 120,
-                                                                    maximum: 120,
-                                                                    preferred: 120)
+            displayLink?.preferredFrameRateRange = CAFrameRateRange(
+                minimum: 120, maximum: 120, preferred: 120
+            )
         } else {
             displayLink?.preferredFramesPerSecond = 120
         }
@@ -170,7 +172,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
 // MARK: –– WKWebView 原生 Layer 拓展
 extension WKWebView {
-    /// 递归查找第一个 CAMetalLayer，然后取它的 nextDrawable().texture.iosurface
+    /// 递归查找第一个 CAMetalLayer，并取它的 nextDrawable().texture.iosurface
     func nextIOSurface() -> IOSurfaceRef? {
         guard let metalLayer = findMetalLayer(in: layer),
               let drawable = metalLayer.nextDrawable()
